@@ -1,0 +1,122 @@
+╔═══════════════════════════════════════════════════════════╗
+║                                                           ║
+║        ⚠️  CRITICAL SECURITY WARNING ⚠️                   ║
+║                                                           ║
+╚═══════════════════════════════════════════════════════════╝
+
+YOUR GITHUB TOKEN HAS BEEN EXPOSED!
+
+Token: [REMOVED FOR SECURITY]
+
+═══════════════════════════════════════════════════════════
+
+IMMEDIATE ACTIONS REQUIRED:
+
+1. ✅ Deploy your code using one of the methods below
+2. ⚠️  REVOKE this token IMMEDIATELY
+3. ✅ Create a new token
+4. ❌ NEVER share tokens publicly again
+
+═══════════════════════════════════════════════════════════
+
+QUICK DEPLOYMENT:
+
+Mac/Linux:
+  $ cd crypto-analyzer-improved
+  $ chmod +x deploy-to-github.sh
+  $ ./deploy-to-github.sh
+
+Windows:
+  > cd crypto-analyzer-improved
+  > deploy-to-github.bat
+
+OR use GitHub Desktop (easiest):
+  https://desktop.github.com/
+
+═══════════════════════════════════════════════════════════
+
+REVOKE TOKEN IMMEDIATELY AFTER DEPLOYMENT:
+
+1. Go to: https://github.com/settings/tokens
+2. Find your token
+3. Click "Delete" or "Revoke"
+4. Confirm
+
+═══════════════════════════════════════════════════════════
+
+CREATE NEW TOKEN FOR FUTURE USE:
+
+1. Go to: https://github.com/settings/tokens/new
+2. Name: crypto-analyzer-new
+3. Expiration: 90 days
+4. Scopes: ☑ repo, ☑ workflow
+5. Generate → COPY → SAVE securely
+
+═══════════════════════════════════════════════════════════
+
+WHY THIS IS IMPORTANT:
+
+With this exposed token, anyone can:
+- ❌ Push code to your repositories
+- ❌ Delete your repositories
+- ❌ Access your private repos
+- ❌ Impersonate you on GitHub
+
+═══════════════════════════════════════════════════════════
+
+BEST PRACTICES:
+
+✅ Use password managers for tokens
+✅ Use environment variables in code
+✅ Add .env to .gitignore
+✅ Never commit secrets
+✅ Rotate tokens every 90 days
+✅ Use minimum required scopes
+
+❌ Never share tokens in:
+   - Chat conversations
+   - Email
+   - Social media
+   - Public code
+   - Screenshots
+
+═══════════════════════════════════════════════════════════
+
+DOCUMENTATION:
+
+Full guide: MANUAL_DEPLOY.md
+Quick start: GITHUB_QUICK_START.txt
+Help: GITHUB_SETUP_GUIDE.md
+
+═══════════════════════════════════════════════════════════
+
+SUPPORT:
+
+If you need help:
+1. Read MANUAL_DEPLOY.md (complete guide)
+2. Use GitHub Desktop (easiest option)
+3. Follow step-by-step in GITHUB_SETUP_GUIDE.md
+
+═══════════════════════════════════════════════════════════
+
+⏰ TIME SENSITIVE!
+
+Revoke the exposed token as soon as deployment is complete.
+Don't wait - do it now!
+
+═══════════════════════════════════════════════════════════
+
+Repository after deployment:
+https://github.com/wibiar279-sketch/crypto-analyzer-improved
+
+Token management:
+https://github.com/settings/tokens
+
+═══════════════════════════════════════════════════════════
+
+This file can be deleted after:
+✅ Code is deployed
+✅ Token is revoked
+✅ New token is created and secured
+
+═══════════════════════════════════════════════════════════
