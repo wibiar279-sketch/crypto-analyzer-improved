@@ -1,0 +1,59 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Deployment scripts
+deploy-to-github.bat
+deploy-to-github.sh
+one-click-deploy.bat
+one-click-deploy.sh
+DEPLOYMENT_COMPLETE.md
+MANUAL_DEPLOY.md
+⚠️_READ_THIS_FIRST_SECURITY_WARNING.txt
+🚨_INSTRUKSI_PENTING_BACA_DULU.txt
