@@ -10,7 +10,7 @@ try:
     TALIB_AVAILABLE = True
 except ImportError:
     TALIB_AVAILABLE = False
-    current_app.logger.warning("TA-Lib not available. Technical analysis will be limited.")
+    # Note: TA-Lib not available. Technical analysis will be limited.
 
 
 class TechnicalAnalysisService:
