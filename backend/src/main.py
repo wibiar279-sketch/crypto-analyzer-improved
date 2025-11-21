@@ -172,7 +172,11 @@ def create_app(config_name=None):
     return app
 
 
+# Create app instance for WSGI servers (Gunicorn, etc.)
+app = create_app()
+
 if __name__ == '__main__':
+    # For local development
     app = create_app()
     app.run(
         host='0.0.0.0',
