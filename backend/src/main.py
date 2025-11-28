@@ -71,6 +71,11 @@ def create_app(config_name=None):
     )
     app.logger.info("Rate limiting enabled")
     
+    # Add root route for testing
+    @app.route('/')
+    def root():
+        return {'status': 'ok', 'message': 'Crypto Analyzer API is running'}
+    
     # Register blueprints
     app.register_blueprint(api_bp)
     app.logger.info("API blueprint registered")
