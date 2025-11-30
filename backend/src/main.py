@@ -95,7 +95,8 @@ def create_app(config_name=None):
     app.logger.info("✓ CORS enabled for all origins")
     
     # Initialize rate limiter with Redis if available
-    if redis_client is not None:
+    # DISABLED FOR DEVELOPMENT - Rate limiting causes 429 errors
+    if False and redis_client is not None:
         try:
             app.logger.info("Initializing rate limiter with Redis...")
             limiter = Limiter(
