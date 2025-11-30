@@ -48,22 +48,30 @@ def create_app(config_name=None):
         except Exception as e:
             app.logger.warning(f"Database table creation skipped: {e}")
     
-    # Initialize Redis
-    try:
-        redis_client = redis.from_url(
-            app.config['REDIS_URL'],
-            decode_responses=True
-        )
-        redis_client.ping()
-        app.logger.info("Redis connected successfully ✓")
-        
-        # Initialize cache manager
-        cache = CacheManager(redis_client)
-        app.cache = cache
-        
-    except Exception as e:
-        app.logger.error(f"Redis connection failed: {e}")
-        app.cache = None
+    # Initialize Redis (optional)
+    app.cache = None
+    redis_url = app.config.get('REDIS_URL')
+    
+    if redis_url and not redis_url.startswith('redis://localhost'):
+        try:
+            redis_client = redis.from_url(
+                redis_url,
+                decode_responses=True,
+                socket_connect_timeout=5
+            )
+            redis_client.ping()
+            app.logger.info("✓ Redis connected successfully")
+            
+            # Initialize cache manager
+            cache = CacheManager(redis_client)
+            app.cache = cache
+            
+        except Exception as e:
+            app.logger.warning(f"⚠ Redis connection failed: {e}")
+            app.logger.info("Application will run without Redis caching")
+            app.cache = None
+    else:
+        app.logger.info("⚠ Redis not configured, running without cache")
     
     # Configure CORS
     cors_origins = app.config.get('CORS_ORIGINS', ['http://localhost:3000', 'http://localhost:5173'])
