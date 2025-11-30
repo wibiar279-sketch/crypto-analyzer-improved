@@ -33,8 +33,9 @@ class Config:
     RATELIMIT_STORAGE_URL = REDIS_URL
     RATELIMIT_STRATEGY = 'fixed-window'
     
-    # CORS
-    CORS_ORIGINS = os.environ.get('CORS_ORIGINS', 'http://localhost:3000,http://localhost:5173').split(',')
+    # CORS - Allow all origins if CORS_ORIGINS is '*', otherwise split by comma
+    cors_env = os.environ.get('CORS_ORIGINS', '*')
+    CORS_ORIGINS = cors_env if cors_env == '*' else cors_env.split(',')
     
     # Cache
     CACHE_DEFAULT_TIMEOUT = 300  # 5 minutes
