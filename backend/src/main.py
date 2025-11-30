@@ -86,10 +86,13 @@ def create_app(config_name=None):
     else:
         app.logger.warning("⚠ REDIS_URL not configured")
     
-    # Configure CORS
-    cors_origins = app.config.get('CORS_ORIGINS', '*')
-    CORS(app, origins=cors_origins, supports_credentials=False)
-    app.logger.info(f"✓ CORS enabled for: {cors_origins}")
+    # Configure CORS - Allow all origins for development
+    CORS(app, 
+         resources={r"/*": {"origins": "*"}},
+         allow_headers=["Content-Type", "Authorization"],
+         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+         supports_credentials=False)
+    app.logger.info("✓ CORS enabled for all origins")
     
     # Initialize rate limiter with Redis if available
     if redis_client is not None:
