@@ -35,7 +35,7 @@ class Config:
         'RATELIMIT_STORAGE_URL',
         'redis://localhost:6379/1'
     )
-    RATELIMIT_DEFAULT = os.getenv('RATELIMIT_DEFAULT', '200 per day;50 per hour')
+    RATELIMIT_DEFAULT = os.getenv('RATELIMIT_DEFAULT', '10000 per day;1000 per hour')
     RATELIMIT_HEADERS_ENABLED = True
     
     # CORS
