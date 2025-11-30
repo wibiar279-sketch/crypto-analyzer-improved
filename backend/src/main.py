@@ -40,6 +40,14 @@ def create_app(config_name=None):
     db.init_app(app)
     migrate = Migrate(app, db)
     
+    # Create tables if they don't exist
+    with app.app_context():
+        try:
+            db.create_all()
+            app.logger.info("Database tables created/verified successfully ✓")
+        except Exception as e:
+            app.logger.warning(f"Database table creation skipped: {e}")
+    
     # Initialize Redis
     try:
         redis_client = redis.from_url(
@@ -47,51 +55,35 @@ def create_app(config_name=None):
             decode_responses=True
         )
         redis_client.ping()
-        app.logger.info("Redis connected successfully")
+        app.logger.info("Redis connected successfully ✓")
         
         # Initialize cache manager
-        cache_manager = CacheManager(redis_client)
-        app.extensions['cache_manager'] = cache_manager
+        cache = CacheManager(redis_client)
+        app.cache = cache
         
     except Exception as e:
         app.logger.error(f"Redis connection failed: {e}")
-        app.logger.warning("Running without cache")
-        app.extensions['cache_manager'] = None
+        app.cache = None
     
-    # Initialize CORS
-    CORS(app, origins=app.config['CORS_ORIGINS'], supports_credentials=True)
-    app.logger.info(f"CORS enabled for: {app.config['CORS_ORIGINS']}")
+    # Configure CORS
+    cors_origins = app.config.get('CORS_ORIGINS', ['http://localhost:3000', 'http://localhost:5173'])
+    CORS(app, resources={
+        r"/api/*": {
+            "origins": cors_origins,
+            "methods": ["GET", "POST", "PUT", "DELETE"],
+            "allow_headers": ["Content-Type", "Authorization"]
+        }
+    })
+    app.logger.info(f"CORS enabled for: {cors_origins} ✓")
     
     # Initialize rate limiter
     limiter = Limiter(
         app=app,
         key_func=get_remote_address,
-        default_limits=app.config.get('RATELIMIT_DEFAULT', '200 per day;50 per hour').split(';'),
+        default_limits=["200 per day", "50 per hour"],
         storage_uri=app.config.get('RATELIMIT_STORAGE_URL')
     )
-    app.logger.info("Rate limiting enabled")
-    
-    # Add root route for testing
-    @app.route('/')
-    def root():
-        return {'status': 'ok', 'message': 'Crypto Analyzer API is running'}
-    
-    # Register blueprints
-    app.register_blueprint(api_bp)
-    app.logger.info("API blueprint registered")
-    
-    # Request/response logging
-    app.before_request(log_request)
-    app.after_request(log_response)
-    
-    # Error handlers
-    @app.errorhandler(Exception)
-    def handle_exception(e):
-        log_error(e)
-        return jsonify({
-            'success': False,
-            'error': 'Internal server error'
-        }), 500
+    app.logger.info("Rate limiting enabled ✓")
     
     # Root endpoint
     @app.route('/')
@@ -100,91 +92,64 @@ def create_app(config_name=None):
             'service': 'Crypto Analyzer API',
             'version': '2.0.0',
             'status': 'running',
-            'documentation': '/api/v1/docs'
-        })
-    
-    # API documentation endpoint
-    @app.route('/api/v1/docs')
-    def api_docs():
-        return jsonify({
             'endpoints': {
-                'health': {
-                    'path': '/api/v1/health',
-                    'method': 'GET',
-                    'description': 'Health check'
-                },
-                'pairs': {
-                    'path': '/api/v1/pairs',
-                    'method': 'GET',
-                    'description': 'Get all trading pairs'
-                },
-                'tickers': {
-                    'path': '/api/v1/tickers',
-                    'method': 'GET',
-                    'description': 'Get all tickers'
-                },
-                'ticker': {
-                    'path': '/api/v1/ticker/<pair_id>',
-                    'method': 'GET',
-                    'description': 'Get ticker for specific pair'
-                },
-                'depth': {
-                    'path': '/api/v1/depth/<pair_id>',
-                    'method': 'GET',
-                    'description': 'Get order book depth'
-                },
-                'analysis': {
-                    'path': '/api/v1/analysis/<pair_id>',
-                    'method': 'GET',
-                    'description': 'Get complete analysis with recommendation'
-                },
-                'technical': {
-                    'path': '/api/v1/technical/<pair_id>',
-                    'method': 'GET',
-                    'description': 'Get technical analysis only'
-                },
-                'bandarmology': {
-                    'path': '/api/v1/bandarmology/<pair_id>',
-                    'method': 'GET',
-                    'description': 'Get bandarmology analysis only'
-                },
-                'history': {
-                    'path': '/api/v1/history/<pair_id>',
-                    'method': 'GET',
-                    'description': 'Get historical analysis data',
-                    'params': {'limit': 'Number of records (default 50, max 1000)'}
-                }
+                'health': '/api/v1/health',
+                'pairs': '/api/v1/pairs',
+                'tickers': '/api/v1/tickers',
+                'analyze': '/api/v1/analyze/<pair_id>'
             }
         })
     
-    # Optional: Sentry integration
-    if app.config.get('SENTRY_DSN'):
-        try:
-            import sentry_sdk
-            from sentry_sdk.integrations.flask import FlaskIntegration
-            
-            sentry_sdk.init(
-                dsn=app.config['SENTRY_DSN'],
-                integrations=[FlaskIntegration()],
-                environment=app.config['FLASK_ENV']
-            )
-            app.logger.info("Sentry integration enabled")
-        except ImportError:
-            app.logger.warning("Sentry SDK not installed")
+    # Register blueprints
+    app.register_blueprint(api_bp)
+    app.logger.info("API blueprint registered ✓")
     
-    app.logger.info("Application initialization complete")
+    # Request/response logging
+    app.before_request(log_request)
+    app.after_request(log_response)
+    
+    # Global error handlers
+    @app.errorhandler(404)
+    def not_found(e):
+        app.logger.warning(f"404 Not Found: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'Endpoint not found',
+            'message': str(e)
+        }), 404
+    
+    @app.errorhandler(500)
+    def internal_error(e):
+        app.logger.error(f"500 Internal Server Error: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': 'Internal server error'
+        }), 500
+    
+    @app.errorhandler(Exception)
+    def handle_exception(e):
+        app.logger.error(f"Unhandled exception: {e}", exc_info=True)
+        log_error(e)
+        return jsonify({
+            'success': False,
+            'error': 'Internal server error',
+            'message': str(e) if app.debug else 'An error occurred'
+        }), 500
+    
+    app.logger.info("Application initialization complete ✓")
     
     return app
 
 
-# Create app instance for WSGI servers (Gunicorn, etc.)
+# Create app instance for Gunicorn
 app = create_app()
 
+
 if __name__ == '__main__':
-    # For local development
-    app = create_app()
+    # Development server
+    app = create_app('development')
     app.run(
         host='0.0.0.0',
-        port=int(os.getenv('PORT', 5000)),
-        debug=app.config['DEBUG']
+        port=int(os.environ.get('PORT', 5000)),
+        debug=True
     )

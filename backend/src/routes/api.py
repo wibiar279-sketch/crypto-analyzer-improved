@@ -18,7 +18,8 @@ from ..utils import (
     ValidationError,
     RequestLogger
 )
-from ..models import db, AnalysisResult, TradingPair
+# Models will be imported when needed to avoid initialization errors
+# from ..models import db, AnalysisResult, TradingPair
 
 # Create blueprint
 api_bp = Blueprint('api', __name__, url_prefix='/api/v1')
@@ -221,8 +222,10 @@ def get_analysis(pair_id):
                 market_data
             )
             
-            # Save to database
+            # Save to database (optional - will skip if models not available)
             try:
+                from ..models import db, AnalysisResult, TradingPair
+                
                 analysis_record = AnalysisResult(
                     pair_id=pair_id,
                     total_score=rec['total_score'],
@@ -245,10 +248,15 @@ def get_analysis(pair_id):
                     trading_pair.last_analysis_at = analysis_record.timestamp
                 
                 db.session.commit()
+                current_app.logger.debug("Analysis saved to database")
             
             except Exception as e:
-                current_app.logger.error(f"Database error: {e}")
-                db.session.rollback()
+                current_app.logger.warning(f"Database save skipped: {e}")
+                try:
+                    from ..models import db
+                    db.session.rollback()
+                except:
+                    pass
             
             # Prepare response
             result = {
@@ -349,17 +357,28 @@ def get_history(pair_id):
         limit = min(limit, 1000)  # Max 1000 records
         
         with RequestLogger(f"Fetching history for {pair_id}"):
-            results = AnalysisResult.query.filter_by(pair_id=pair_id)\
-                .order_by(AnalysisResult.timestamp.desc())\
-                .limit(limit)\
-                .all()
+            try:
+                from ..models import AnalysisResult
+                
+                results = AnalysisResult.query.filter_by(pair_id=pair_id)\
+                    .order_by(AnalysisResult.timestamp.desc())\
+                    .limit(limit)\
+                    .all()
+                
+                return jsonify({
+                    'success': True,
+                    'pair_id': pair_id,
+                    'data': [r.to_dict() for r in results],
+                    'count': len(results)
+                })
             
-            return jsonify({
-                'success': True,
-                'pair_id': pair_id,
-                'data': [r.to_dict() for r in results],
-                'count': len(results)
-            })
+            except Exception as db_error:
+                current_app.logger.warning(f"Database not available: {db_error}")
+                return jsonify({
+                    'success': False,
+                    'error': 'Historical data not available',
+                    'message': 'Database is not configured'
+                }), 503
     
     except ValidationError as e:
         return jsonify({'success': False, 'error': str(e)}), 400
