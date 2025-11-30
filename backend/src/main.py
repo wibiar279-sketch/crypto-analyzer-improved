@@ -76,14 +76,20 @@ def create_app(config_name=None):
     })
     app.logger.info(f"CORS enabled for: {cors_origins} ✓")
     
-    # Initialize rate limiter
-    limiter = Limiter(
-        app=app,
-        key_func=get_remote_address,
-        default_limits=["200 per day", "50 per hour"],
-        storage_uri=app.config.get('RATELIMIT_STORAGE_URL')
-    )
-    app.logger.info("Rate limiting enabled ✓")
+    # Initialize rate limiter only if Redis is available
+    if app.cache is not None:
+        try:
+            limiter = Limiter(
+                app=app,
+                key_func=get_remote_address,
+                default_limits=["200 per day", "50 per hour"],
+                storage_uri=app.config.get('RATELIMIT_STORAGE_URL')
+            )
+            app.logger.info("Rate limiting enabled ✓")
+        except Exception as e:
+            app.logger.warning(f"Rate limiting disabled: {e}")
+    else:
+        app.logger.warning("Rate limiting disabled (Redis not available)")
     
     # Root endpoint
     @app.route('/')
