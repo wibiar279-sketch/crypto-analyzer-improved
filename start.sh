@@ -15,4 +15,4 @@ fi
 
 # Start the application with Gunicorn
 echo "🌐 Starting Gunicorn server..."
-exec gunicorn -w 4 -b 0.0.0.0:${PORT:-5000} --access-logfile - --error-logfile - src.main:app
+exec gunicorn -w 4 -b 0.0.0.0:${PORT:-5000} --timeout 120 --access-logfile - --error-logfile - src.main:app
