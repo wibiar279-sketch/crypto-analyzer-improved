@@ -12,6 +12,7 @@ from flask_migrate import Migrate
 from .config import get_config
 from .models import db
 from .routes.api import api_bp
+from .routes.orderbook_routes import orderbook_bp
 from .utils import CacheManager, setup_logging, log_request, log_response, log_error
 
 
@@ -129,13 +130,15 @@ def create_app(config_name=None):
                 'health': '/api/v1/health',
                 'pairs': '/api/v1/pairs',
                 'tickers': '/api/v1/tickers',
-                'analyze': '/api/v1/analyze/<pair_id>'
+                'analyze': '/api/v1/analyze/<pair_id>',
+                'order_books': '/api/v1/order-books'
             }
         })
     
     # Register blueprints
     app.register_blueprint(api_bp)
-    app.logger.info("✓ API blueprint registered")
+    app.register_blueprint(orderbook_bp, url_prefix='/api/v1')
+    app.logger.info("✓ API blueprints registered")
     
     # Request/response logging
     app.before_request(log_request)
