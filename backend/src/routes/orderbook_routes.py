@@ -3,7 +3,7 @@ Order Book Routes
 API endpoints for order book data
 """
 from flask import Blueprint, jsonify, request
-from services.orderbook_service import orderbook_service
+from ..services.orderbook_service import orderbook_service
 import asyncio
 import logging
 
