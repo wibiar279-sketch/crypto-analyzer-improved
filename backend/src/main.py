@@ -13,6 +13,7 @@ from .config import get_config
 from .models import db
 from .routes.api import api_bp
 from .routes.orderbook_routes import orderbook_bp
+from .services.scheduler_service import scheduler_service
 from .utils import CacheManager, setup_logging, log_request, log_response, log_error
 
 
@@ -175,6 +176,9 @@ def create_app(config_name=None):
     app.logger.info("=" * 60)
     app.logger.info("✓ Application initialization complete")
     app.logger.info("=" * 60)
+    
+    # Start background scheduler for order book updates
+    scheduler_service.start_orderbook_updates()
     
     return app
 

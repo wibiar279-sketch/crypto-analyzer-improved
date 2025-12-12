@@ -4,7 +4,6 @@ API endpoints for order book data
 """
 from flask import Blueprint, jsonify, request
 from ..services.orderbook_service import orderbook_service
-import asyncio
 import logging
 
 logger = logging.getLogger(__name__)
@@ -14,68 +13,70 @@ orderbook_bp = Blueprint('orderbook', __name__)
 @orderbook_bp.route('/order-books', methods=['GET'])
 def get_order_books():
     """
-    Get order books for all trading pairs
-    Query params:
-    - pairs: comma-separated list of pair IDs (e.g., btcidr,ethidr)
+    Get cached order books for all pairs
+    Returns immediately from cache (updated every 5 minutes in background)
     """
     try:
-        # Get pairs from query param or use default list
-        pairs_param = request.args.get('pairs', '')
+        # Get cached data (no async needed, just return cache)
+        cached_data = orderbook_service.cache
         
+        if not cached_data:
+            return jsonify({
+                'success': False,
+                'message': 'Order book data not yet available. Please wait for initial fetch to complete.',
+                'data': {}
+            }), 503
+        
+        # Get specific pairs if requested
+        pairs_param = request.args.get('pairs')
         if pairs_param:
-            pairs = [p.strip() for p in pairs_param.split(',') if p.strip()]
+            requested_pairs = [p.strip().lower() for p in pairs_param.split(',')]
+            filtered_data = {pair: cached_data.get(pair, orderbook_service._empty_order_book()) 
+                           for pair in requested_pairs}
         else:
-            # Default: fetch for common pairs
-            # In production, this should come from the pairs endpoint
-            pairs = [
-                'btcidr', 'ethidr', 'usdtidr', 'bnbidr', 'xrpidr',
-                'adaidr', 'dogidr', 'shibaidr', 'maticid', 'solidr'
-            ]
-        
-        # Fetch order books (run async code in sync context)
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        order_books = loop.run_until_complete(orderbook_service.get_order_books(pairs))
-        loop.close()
+            filtered_data = cached_data
         
         return jsonify({
             'success': True,
-            'data': order_books,
-            'cached_at': orderbook_service.cache_timestamp.isoformat() if orderbook_service.cache_timestamp else None,
-            'total_pairs': len(order_books)
-        }), 200
-        
+            'total_pairs': len(filtered_data),
+            'cache_timestamp': orderbook_service.cache_timestamp.isoformat() if orderbook_service.cache_timestamp else None,
+            'data': filtered_data
+        })
     except Exception as e:
         logger.error(f"Error in get_order_books: {e}")
         return jsonify({
             'success': False,
-            'error': str(e)
+            'message': str(e)
         }), 500
 
 @orderbook_bp.route('/order-books/<pair_id>', methods=['GET'])
 def get_single_order_book(pair_id: str):
-    """Get order book for a single pair"""
+    """Get cached order book for a single pair"""
     try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        order_books = loop.run_until_complete(orderbook_service.get_order_books([pair_id]))
-        loop.close()
+        cached_data = orderbook_service.cache
         
-        if pair_id in order_books:
+        if not cached_data:
+            return jsonify({
+                'success': False,
+                'message': 'Order book data not yet available.'
+            }), 503
+        
+        pair_data = cached_data.get(pair_id.lower())
+        if pair_data:
             return jsonify({
                 'success': True,
-                'data': order_books[pair_id],
+                'data': pair_data,
                 'pair_id': pair_id
-            }), 200
+            })
         else:
             return jsonify({
                 'success': False,
-                'error': 'Order book not found'
+                'message': 'Order book not found for this pair'
             }), 404
             
     except Exception as e:
         logger.error(f"Error in get_single_order_book: {e}")
         return jsonify({
             'success': False,
-            'error': str(e)
+            'message': str(e)
         }), 500

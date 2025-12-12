@@ -145,5 +145,31 @@ class OrderBookService:
             'buy_sell_ratio': 0
         }
 
+    def fetch_and_cache_all(self):
+        """
+        Fetch and cache order books for all pairs (for background job)
+        This runs in a background thread, so we need to create new event loop
+        """
+        try:
+            # Get all pairs from Indodax
+            import requests
+            response = requests.get('https://indodax.com/api/pairs', timeout=10)
+            if response.status_code == 200:
+                pairs_data = response.json()
+                pairs = [pair['ticker_id'].replace('_', '').lower() for pair in pairs_data]
+                
+                # Create new event loop for this thread
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    loop.run_until_complete(self._fetch_order_books(pairs))
+                    logger.info(f"✓ Successfully cached order books for {len(pairs)} pairs")
+                finally:
+                    loop.close()
+            else:
+                logger.error(f"Failed to fetch pairs list: {response.status_code}")
+        except Exception as e:
+            logger.error(f"Error in fetch_and_cache_all: {e}")
+
 # Global instance
 orderbook_service = OrderBookService()
