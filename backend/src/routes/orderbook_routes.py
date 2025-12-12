@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 orderbook_bp = Blueprint('orderbook', __name__)
 
 @orderbook_bp.route('/order-books', methods=['GET'])
-async def get_order_books():
+def get_order_books():
     """
     Get order books for all trading pairs
     Query params:
@@ -32,8 +32,11 @@ async def get_order_books():
                 'adaidr', 'dogidr', 'shibaidr', 'maticid', 'solidr'
             ]
         
-        # Fetch order books
-        order_books = await orderbook_service.get_order_books(pairs)
+        # Fetch order books (run async code in sync context)
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        order_books = loop.run_until_complete(orderbook_service.get_order_books(pairs))
+        loop.close()
         
         return jsonify({
             'success': True,
@@ -50,10 +53,13 @@ async def get_order_books():
         }), 500
 
 @orderbook_bp.route('/order-books/<pair_id>', methods=['GET'])
-async def get_single_order_book(pair_id: str):
+def get_single_order_book(pair_id: str):
     """Get order book for a single pair"""
     try:
-        order_books = await orderbook_service.get_order_books([pair_id])
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        order_books = loop.run_until_complete(orderbook_service.get_order_books([pair_id]))
+        loop.close()
         
         if pair_id in order_books:
             return jsonify({
