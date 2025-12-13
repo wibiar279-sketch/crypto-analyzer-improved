@@ -17,11 +17,8 @@ class SchedulerService:
     def start_orderbook_updates(self):
         """Start periodic order book updates every 5 minutes"""
         try:
-            # Run immediately on startup
-            logger.info("Running initial order book fetch...")
-            orderbook_service.fetch_and_cache_all()
-            
             # Schedule periodic updates every 5 minutes
+            # First run will happen 5 minutes after startup
             self.scheduler.add_job(
                 func=orderbook_service.fetch_and_cache_all,
                 trigger=IntervalTrigger(minutes=5),
@@ -29,7 +26,7 @@ class SchedulerService:
                 name='Fetch and cache order books',
                 replace_existing=True
             )
-            logger.info("✓ Order book background updates scheduled (every 5 minutes)")
+            logger.info("✓ Order book background updates scheduled (every 5 minutes, first run in 5 minutes)")
         except Exception as e:
             logger.error(f"Failed to start order book updates: {e}")
     

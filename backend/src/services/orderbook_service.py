@@ -1,6 +1,6 @@
 """
 Order Book Service
-Fetches and caches order book data from Indodax API
+Fetches and caches order book data from Indodax API with lazy loading and batch fetching
 """
 import asyncio
 import aiohttp
@@ -12,46 +12,64 @@ logger = logging.getLogger(__name__)
 
 class OrderBookService:
     def __init__(self):
-        self.cache: Dict[str, Dict] = {}
-        self.cache_timestamp: Optional[datetime] = None
-        self.cache_duration = timedelta(seconds=30)  # Cache for 30 seconds
-        self.is_fetching = False
+        self.cache: Dict[str, Dict] = {}  # pair -> order book data
+        self.cache_timestamps: Dict[str, datetime] = {}  # pair -> timestamp
+        self.cache_duration = timedelta(seconds=30)  # Cache for 30 seconds per pair
+        self.cache_timestamp: Optional[datetime] = None  # Global cache timestamp for compatibility
+        self.fetching_pairs = set()  # Track which pairs are currently being fetched
         
-    async def get_order_books(self, pairs: List[str]) -> Dict[str, Dict]:
+    def fetch_order_books(self, pairs: List[str]) -> Dict[str, Dict]:
         """
-        Get order books for all pairs with caching
+        Fetch order books for specific pairs with per-pair caching
+        Uses cache if available and fresh (< 30 seconds old)
         """
-        # Return cache if still valid
-        if self._is_cache_valid():
-            return self.cache
-            
-        # Prevent multiple simultaneous fetches
-        if self.is_fetching:
-            # Wait for ongoing fetch to complete
-            while self.is_fetching:
-                await asyncio.sleep(0.1)
-            return self.cache
-            
-        # Fetch new data
-        self.is_fetching = True
-        try:
-            await self._fetch_order_books(pairs)
-        finally:
-            self.is_fetching = False
-            
-        return self.cache
+        result = {}
+        pairs_to_fetch = []
+        
+        # Check cache for each pair
+        for pair in pairs:
+            pair_lower = pair.lower()
+            if self._is_pair_cache_valid(pair_lower):
+                # Use cached data
+                result[pair_lower] = self.cache.get(pair_lower, self._empty_order_book())
+            else:
+                # Need to fetch
+                pairs_to_fetch.append(pair_lower)
+        
+        # Fetch missing/stale pairs
+        if pairs_to_fetch:
+            logger.info(f"Fetching {len(pairs_to_fetch)} pairs, {len(result)} from cache")
+            fetched = self._fetch_order_books_sync(pairs_to_fetch)
+            result.update(fetched)
+        else:
+            logger.info(f"All {len(pairs)} pairs served from cache")
+        
+        return result
     
-    def _is_cache_valid(self) -> bool:
-        """Check if cache is still valid"""
-        if not self.cache_timestamp:
+    def _is_pair_cache_valid(self, pair: str) -> bool:
+        """Check if cache for specific pair is still valid"""
+        if pair not in self.cache_timestamps:
             return False
-        return datetime.now() - self.cache_timestamp < self.cache_duration
+        return datetime.now() - self.cache_timestamps[pair] < self.cache_duration
     
-    async def _fetch_order_books(self, pairs: List[str]):
-        """Fetch order books from Indodax API in parallel batches"""
+    def _fetch_order_books_sync(self, pairs: List[str]) -> Dict[str, Dict]:
+        """Synchronous wrapper for async fetch (for Flask routes)"""
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                return loop.run_until_complete(self._fetch_order_books_async(pairs))
+            finally:
+                loop.close()
+        except Exception as e:
+            logger.error(f"Error in _fetch_order_books_sync: {e}")
+            return {pair: self._empty_order_book() for pair in pairs}
+    
+    async def _fetch_order_books_async(self, pairs: List[str]) -> Dict[str, Dict]:
+        """Fetch order books from Indodax API in parallel"""
         logger.info(f"Fetching order books for {len(pairs)} pairs")
         
-        # Fetch in batches of 50 to avoid overwhelming the API
+        # Fetch all pairs in parallel (batch of 50 at a time to avoid overwhelming API)
         batch_size = 50
         all_results = {}
         
@@ -67,14 +85,18 @@ class OrderBookService:
                         all_results[pair] = self._empty_order_book()
                     else:
                         all_results[pair] = result
+                        # Update per-pair cache timestamp
+                        self.cache[pair] = result
+                        self.cache_timestamps[pair] = datetime.now()
                 
                 # Small delay between batches
                 if i + batch_size < len(pairs):
                     await asyncio.sleep(0.1)
         
-        self.cache = all_results
+        # Update global timestamp for compatibility
         self.cache_timestamp = datetime.now()
-        logger.info(f"Order books cached at {self.cache_timestamp}")
+        logger.info(f"Fetched and cached {len(all_results)} order books")
+        return all_results
     
     async def _fetch_single_order_book(self, session: aiohttp.ClientSession, pair: str) -> Dict:
         """Fetch single order book from Indodax"""
@@ -148,7 +170,7 @@ class OrderBookService:
     def fetch_and_cache_all(self):
         """
         Fetch and cache order books for all pairs (for background job)
-        This runs in a background thread, so we need to create new event loop
+        This is optional and runs periodically to warm up cache
         """
         try:
             # Get all pairs from Indodax
@@ -158,14 +180,10 @@ class OrderBookService:
                 pairs_data = response.json()
                 pairs = [pair['ticker_id'].replace('_', '').lower() for pair in pairs_data]
                 
-                # Create new event loop for this thread
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    loop.run_until_complete(self._fetch_order_books(pairs))
-                    logger.info(f"✓ Successfully cached order books for {len(pairs)} pairs")
-                finally:
-                    loop.close()
+                logger.info(f"Background job: fetching {len(pairs)} pairs")
+                # Use the sync fetch method
+                self._fetch_order_books_sync(pairs)
+                logger.info(f"✓ Background job: cached order books for {len(pairs)} pairs")
             else:
                 logger.error(f"Failed to fetch pairs list: {response.status_code}")
         except Exception as e:
