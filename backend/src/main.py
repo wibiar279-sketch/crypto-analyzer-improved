@@ -177,8 +177,10 @@ def create_app(config_name=None):
     app.logger.info("✓ Application initialization complete")
     app.logger.info("=" * 60)
     
-    # Start background scheduler for order book updates
-    scheduler_service.start_orderbook_updates()
+    # Background scheduler DISABLED - using lazy loading instead
+    # This prevents rate limiting from Indodax API
+    # scheduler_service.start_orderbook_updates()
+    app.logger.info("✓ Order book lazy loading enabled (no background fetch)")
     
     return app
 
